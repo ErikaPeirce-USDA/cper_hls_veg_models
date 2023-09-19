@@ -9,6 +9,7 @@ library(lubridate)
 library(ggplot2)
 library(lmerTest)
 library(sjPlot)
+library(emmeans)
 library(ggeffects)
 library(ggpmisc)
 library(cowplot) #for manuscript ready figures
@@ -50,7 +51,7 @@ df$Block <- as.factor(df$Block)
 df$Ecosite <- as.factor(df$Ecosite)
 df$Graze_timing <- as.factor(df$Graze_timing)
 df$Graze_timing  <-  factor(df$Graze_timing, levels = c("Season-long","Ungrazed","Pulse"))
-df$Ecosite  <-  factor(df$Ecosite, levels = c("Sandy","Loamy","Salt Flats"))
+df$Ecosite  <-  factor(df$Ecosite, levels = c("Loamy","Sandy","Salt Flats"))
 
 str(df)
 response_var <-  'Total_Biomass'
@@ -62,6 +63,20 @@ global.model.graze<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing:iAPAR + E
 anova(global.model.graze)
 summary(global.model.graze)
 plot(global.model.graze)
+
+emm_graze <- emmeans(global.model.graze, pairwise ~ Graze_timing)
+emm_graze
+
+emm_eco<- emmeans(global.model.graze, pairwise ~ Ecosite)
+emm_eco
+
+emm_graze_eco <- emmeans(global.model.graze, pairwise ~ Graze_timing*Ecosite)
+emm_graze_eco
+
+multcomp::cld(emm_graze_eco, alpha = 0.05, Letters = letters)
+
+pwpp_ecograze <- pwpp(emm_graze_eco)
+pwpp_ecograze
 
 
 class(global.model.graze) <- "lmerMod"
@@ -125,39 +140,58 @@ coefficients.graze <- coefficients.graze[-1, ]
 coefficients.graze <- rename(coefficients.graze, Std.Error = `Std. Error`, t.value = `t value`)
 
 
-newdata1 <- data.frame(Estimate = 0, Std.Error =0, t.value = 0, Variables = "iAPAR:Graze_timing_Ungrazed")
-newdata2 <- data.frame(Estimate = 0, Std.Error =0, t.value = 0, Variables = "iAPAR:Ecosite_Loamy")
+newdata1 <- data.frame(Estimate = 0, Std.Error =0, t.value = 0, Variables = "iAPAR:Season-long Grazed")
+newdata2 <- data.frame(Estimate = 0, Std.Error =0, t.value = 0, Variables = "iAPAR:Loamy Ecosite")
+newdata3 <- data.frame(Estimate = 0, Std.Error =0, t.value = 0,
+                       Variables = c("iAPAR:Season-long:Loamy","iAPAR:Season-long:Sandy","iAPAR:Season-long:Salt Flats"))
+newdata4 <- data.frame(Estimate = 0, Std.Error =0, t.value = 0, Variables = "iAPAR:Pulse:Loamy")
+newdata5 <- data.frame(Estimate = 0, Std.Error =0, t.value = 0, Variables = "iAPAR:Ungrazed:Loamy")
 
 coefficients.graze <- rbind(coefficients.graze,newdata1)
 coefficients.graze2 <- rbind(coefficients.graze,newdata2)
+coefficients.graze2 <- rbind(coefficients.graze2,newdata3)
+coefficients.graze2 <- rbind(coefficients.graze2,newdata4)
+coefficients.graze2 <- rbind(coefficients.graze2,newdata5)
 coefficients.graze2$Variables<- as.factor(coefficients.graze2$Variables)
 
 coefficients.graze2 <- coefficients.graze2 %>% 
   mutate(Variables=recode(Variables, "iAPAR" = "iAPAR",
-  "iAPAR:Graze_timing_Ungrazed" = "iAPAR:Ungrazed",
+  "iAPAR:Graze_timingUngrazed" = "iAPAR:Ungrazed",
   "iAPAR:Graze_timingPulse" = "iAPAR:Pulse Grazed",
-  "iAPAR:Graze_timingSeason-long" = "iAPAR:Season-long Grazed",
-  "iAPAR:Ecosite_Loamy" = "iAPAR:Loamy Ecosite",
+  "iAPAR:Graze_timingSeasonlong" = "iAPAR:Season-long Grazed",
+  "iAPAR:EcositeLoamy" = "iAPAR:Loamy Ecosite",
   "iAPAR:EcositeSalt Flats" = "iAPAR:Salt Flats Ecosite",
-  "iAPAR:EcositeSandy" = "iAPAR:Sandy Ecosite")) #%>%
+  "iAPAR:EcositeSandy" = "iAPAR:Sandy Ecosite",
+  "iAPAR:Graze_timingUngrazed:EcositeSandy" = "iAPAR:Ungrazed:Sandy",
+  "iAPAR:Graze_timingPulse:EcositeSandy" = "iAPAR:Pulse:Sandy",
+  "iAPAR:Graze_timingPulse:EcositeSalt Flats" = "iAPAR:Pulse:Salt Flats",
+  "iAPAR:Graze_timingUngrazed:EcositeSalt Flats" = "iAPAR:Ungrazed:Salt Flats",
+  )) #%>%
   # mutate(label = c("iAPAR", "Grazing", "Grazing", "Grazing", "Ecosite", "Ecosite", "Ecosite"))
 
 str(coefficients.graze2)
 coefficients.graze2 <- coefficients.graze2 %>%
-  mutate(Variables = fct_relevel(Variables, c("iAPAR","iAPAR:Ungrazed","iAPAR:Pulse Grazed",
-                                              "iAPAR:Season-long Grazed","iAPAR:Loamy Ecosite",
-                                              "iAPAR:Salt Flats Ecosite","iAPAR:Sandy Ecosite")))%>%
+  mutate(Variables = fct_relevel(Variables, c("iAPAR","iAPAR:Season-long Grazed","iAPAR:Ungrazed","iAPAR:Pulse Grazed",
+                                              "iAPAR:Loamy Ecosite","iAPAR:Salt Flats Ecosite","iAPAR:Sandy Ecosite",
+                                              "iAPAR:Season-long:Loamy","iAPAR:Season-long:Sandy","iAPAR:Season-long:Salt Flats",
+                                              "iAPAR:Ungrazed:Loamy","iAPAR:Ungrazed:Sandy","iAPAR:Ungrazed:Salt Flats",
+                                              "iAPAR:Pulse:Loamy","iAPAR:Pulse:Salt Flats","iAPAR:Pulse:Sandy")))%>%
 
   arrange(Variables)
 
 coefficients.graze2$Variables<- ordered(coefficients.graze2$Variables)
 coefficients.graze2 <- coefficients.graze2 %>%
-  mutate(label = c("iAPAR", "Grazing", "Grazing", "Grazing", "Ecosite", "Ecosite", "Ecosite"))#%>%
-  mutate(Variables = forcats::fct_rev(Variables))
+  mutate(label = c("iAPAR", "Grazing", "Grazing", "Grazing", "Ecosite", "Ecosite", "Ecosite",
+                   "Grazing:Ecosite","Grazing:Ecosite","Grazing:Ecosite","Grazing:Ecosite",
+                   "Grazing:Ecosite","Grazing:Ecosite","Grazing:Ecosite",
+                   "Grazing:Ecosite","Grazing:Ecosite"))#%>%
+  # 
 str(coefficients.graze2)
 
+coefficients.graze2 <- coefficients.graze2 %>%
+  mutate(Variables = forcats::fct_rev(Variables))
 #coeff graph ----
-coeff.gg <- ggplot(coefficients.graze2, aes(x = fct_inorder(Variables), y = Estimate, ymin = Estimate - (2 * Std.Error), ymax = Estimate + (2 * Std.Error))) +
+coeff.gg <- ggplot(coefficients.graze2, aes(x = forcats::fct_inorder(Variables), y = Estimate, ymin = Estimate - (2 * Std.Error), ymax = Estimate + (2 * Std.Error))) +
   geom_linerange(color = "steelblue") +
   geom_point(color = "steelblue", size = 3) +
   mytheme() +
