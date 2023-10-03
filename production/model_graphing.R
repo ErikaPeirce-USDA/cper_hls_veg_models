@@ -23,6 +23,7 @@ library(sjstats) #use for r2 functions
 library(scales)
 library(stargazer)
 library(forcats)
+library(explore)
 
 mytheme<-function ()
 {
@@ -40,11 +41,27 @@ mytheme<-function ()
   )}
 
 getwd()
-
-inPATH = '../data/training/iapar/model_selection_data.csv'
+#Load RAP
+rap_df <- read.csv('../data/training/iapar/RAP_herb.csv')
+str(rap_df)
+# rap_df$time <- as.Date(rap_df$time)
+rap_df$Plot <- as.factor(rap_df$Plot)
+rap_df$Id <- rap_df$Plot
+rap_df$Year <- lubridate::year(rap_df$time)
+rap_df$Year <- as.factor(rap_df$Year)
+#Load model training data
+inPATH = '../data/training/iapar/model_selection/cper_biomass_iapar_2014_2022_carm.csv'
 
 df = read.csv(inPATH)
+
+sum <- df %>%
+  group_by(Graze_timing) %>%
+  summarise(sum_n = length(Total_Biomass))
+sum
+
+
 str(df)
+
 df$Year <- as.factor(df$Year)
 df$Treatment <- as.factor(df$Treatment)
 df$Block <- as.factor(df$Block)
@@ -55,6 +72,10 @@ df$Ecosite  <-  factor(df$Ecosite, levels = c("Loamy","Sandy","Salt Flats"))
 
 str(df)
 response_var <-  'Total_Biomass'
+df <- right_join(df, rap_df, by = c("Id","Year"))
+df <- filter(df, !is.na(Treatment))
+  
+
 
 #Using a lmer ----
 global.model.graze<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing:iAPAR + Ecosite:iAPAR + Graze_timing:Ecosite:iAPAR  + (1|Year) + (1|Id)"),
@@ -70,6 +91,7 @@ emm_graze
 emm_eco<- emmeans(global.model.graze, pairwise ~ Ecosite)
 emm_eco
 
+#Emmeans for the interaction between graze and ecosite
 emm_graze_eco <- emmeans(global.model.graze, pairwise ~ Graze_timing*Ecosite)
 emm_graze_eco
 
@@ -330,6 +352,12 @@ gg_graze_fe
 grid_graze<-plot_grid(gg_graze_all, gg_graze_fe, labels=c("With random effects", "Without random effects"), ncol = 1, nrow = 2)
 grid_graze
 
+# ggsave(filename = "./gg_graze_all_no_points.pdf",
+#        plot = grid_graze, #this is what you named your plot as, in this case our first plot is g1
+#        bg = "transparent",
+#        width = 8, height = 8, units = "in",
+#        dpi = 300)
+
 saltflats <- df %>%
   filter(Ecosite == "Salt Flats")
 
@@ -342,3 +370,117 @@ gg_graze_fe <- ggplot() +
   # scale_shape_manual(values=c(15,17,19))+
   # scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D"))
 gg_graze_fe
+
+# graphing RAP ----
+#summary graphs to check infestation rates
+# Calculate the slope based on the axis scales
+x_range <- range(df2$iAPAR)
+y_range <- range(df2$RAP_herb_kg_ha)
+slope <- diff(y_range) / diff(x_range)
+
+# Add a 1:1 reference line with the calculated slope
+p + geom_abline(intercept = y_range[1] - slope * x_range[1], slope = slope, color = "red")
+
+gg_rap1 <- ggplot() +
+  geom_point(data = df, aes(x = Total_Biomass, y = predict_fe, color = Graze_timing,shape = Graze_timing),size = 1.2,alpha = 0.5) +
+  # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
+  # geom_smooth(data = df, aes(x = iAPAR, y = predict_fe, color = Graze_timing), linetype = "longdash", size = 1,method = "lm", se = FALSE) +
+  mytheme() +
+  ylim(0,3000)+
+  # labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)))+
+  scale_shape_manual(values=c(15,17,19))+
+  scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D"))+
+  geom_abline(slope = 1, intercept = 0)+
+  facet_grid(.~ Graze_timing) 
+gg_rap1 
+
+gg_rap2 <- ggplot() +
+  geom_point(data = df, aes(x = Total_Biomass, y = RAP_herb_kg_ha, color = Graze_timing,shape = Graze_timing),size = 1.2,alpha = 0.5) +
+  # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
+  geom_smooth(data = df, aes(x = Total_Biomass, y = RAP_herb_kg_ha, color = Graze_timing), linetype = "longdash", size = 1,method = "lm", se = FALSE) +
+  mytheme() +
+  ylim(0,3000)+
+  # labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)))+
+  scale_shape_manual(values=c(15,17,19))+
+  scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D"))+
+  geom_abline(slope = 1, intercept = 0)+
+  facet_grid(.~ Ecosite)
+gg_rap2
+
+gg_rap3 <- ggplot() +
+  geom_point(data = df, aes(x = RAP_herb_kg_ha, y = predict_fe, color = Graze_timing, shape = Graze_timing),size = 1.2,alpha = 0.5) +
+  # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
+  geom_smooth(data = df, aes(x = RAP_herb_kg_ha, y = predict_fe, color = Graze_timing), linetype = "longdash", size = 1,method = "lm", se = FALSE) +
+  mytheme() +
+  ylim(0,3000)+
+  # labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)))+
+  scale_shape_manual(values=c(15,17,19))+
+  scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D"))+
+  geom_abline(slope = 1, intercept = 0)+
+  facet_grid(.~ Ecosite)
+gg_rap3
+
+# calculate prediction errors ----
+
+df$rap_mape <- abs(df$RAP_herb_kg_ha - df$Total_Biomass)/df$Total_Biomass
+rap_mape <- mean(df$rap_mape)
+
+df$iapar_mape <- abs(df$predict_fe - df$Total_Biomass)/df$Total_Biomass
+iapar_mape <- mean(df$iapar_mape)
+
+sum_iapar <- df %>%
+  group_by(Graze_timing)%>%
+  summarise(Average = mean(iapar_mape))
+sum_iapar
+
+sum_rap <- df %>%
+  group_by(Graze_timing)%>%
+  summarise(Average = mean(rap_mape))
+sum_rap
+
+str(df)
+df$rap_error <- df$Total_Biomass - df$RAP_herb_kg_ha 
+df$iapar_error <- df$Total_Biomass - df$predict_fe 
+
+gg_rap4 <- ggplot(df, aes(x = Total_Biomass)) +
+  geom_point(aes(y = rap_error),color = 'blue')+
+  geom_point(aes(y = iapar_error),color = 'red')+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  facet_grid(.~ Ecosite)
+gg_rap4
+
+# Create a scatterplot to compare model errors
+rap_error.gg <- ggplot(df, aes(x = Total_Biomass)) +
+  geom_point(aes(y = rap_error, color = Ecosite)) +
+  # geom_point(aes(y = iapar_error, color = ifelse(rap_mape > iapar_mape, "RAP Overpredicts", "IAPAR Overpredicts"))) +
+  
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  facet_grid(. ~ Graze_timing) +
+  labs(
+    x = "RAP predicted",
+    y = "Residuals",
+    color = "Comparison"
+  ) +
+    ylim(-1000,2500)+ xlim(0,3000)+
+  mytheme()
+
+rap_error.gg
+
+iapar_error.gg <- ggplot(df, aes(x = Total_Biomass)) +
+  geom_point(aes(y = iapar_error, color = Ecosite)) +
+  # geom_point(aes(y = iapar_error, color = ifelse(rap_mape > iapar_mape, "RAP Overpredicts", "IAPAR Overpredicts"))) +
+  
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  facet_grid(. ~ Graze_timing) +
+  labs(
+    x = "iAPAR predicted",
+    y = "Residuals",
+    color = "Comparison"
+  ) +
+    ylim(-1000,2500)+xlim(0,3200)+
+  mytheme()
+iapar_error.gg
+
+error_grid <- plot_grid(iapar_error.gg,rap_error.gg,ncol = 1, nrow = 2)
+error_grid
+
