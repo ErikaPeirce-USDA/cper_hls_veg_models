@@ -25,6 +25,7 @@ library(scales)
 library(stargazer)
 library(forcats)
 library(explore)
+library(gridExtra)
 
 mytheme<-function ()
 {
@@ -570,11 +571,16 @@ ft1 <- ft1 %>%
                "",
                "Error Metrics",         # This will be the top-level header for this and two next columns
                ""))%>%
-  merge_at(i = 1, j = 4:7, part = "header")%>%
-  bg(bg = colourer,
-     j = "Ecosite",
-     part = "body")
+  merge_at(i = 1, j = 4:7, part = "header")
+  # bg(bg = colourer,
+  #    j = "Ecosite",
+  #    part = "body")
 ft1
+
+# save_as_docx(
+#   "RAP vs iAPAR production predictions" = ft1,
+#   path = "./tables/rap_vs_iAPAR.docx")
+
 # Graphing error metrics ----
 gg_metrics <- ggplot(error_combined, aes(x = Graze_timing, y = mae, fill= Source))+
   geom_col(position = "dodge") + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.3)) +
@@ -595,17 +601,17 @@ gg_rap4
 
 # Create a scatterplot to compare model errors
 rap_error.gg <- ggplot(df, aes(x = Total_Biomass)) +
-  geom_point(aes(y = rap_error, color = Ecosite)) +
+  geom_point(aes(y = rap_error, color = Graze_timing)) +
   # geom_point(aes(y = iapar_error, color = ifelse(rap_mape > iapar_mape, "RAP Overpredicts", "IAPAR Overpredicts"))) +
   
   geom_hline(yintercept = 0, linetype = "dashed") +
-  facet_grid(. ~ Graze_timing) +
+  facet_grid(. ~ Ecosite) +
   labs(
     x = "RAP predicted",
     y = "Residuals",
     color = "Comparison"
   ) +
-    ylim(-1000,2500)+ xlim(0,3000)+
+    ylim(-1000,2500)+ xlim(0,3500)+
   mytheme()
 
 rap_error.gg
@@ -621,10 +627,141 @@ iapar_error.gg <- ggplot(df, aes(x = Total_Biomass)) +
     y = "Residuals",
     color = "Comparison"
   ) +
-    ylim(-1000,2500)+xlim(0,3200)+
+    ylim(-1000,2500)+xlim(0,3500)+
   mytheme()
 iapar_error.gg
 
 error_grid <- plot_grid(rap_error.gg,iapar_error.gg,ncol = 1, nrow = 2)
 error_grid
+
+# graphing NDVI and grazing date ----
+grazing_dates <- read.csv("../data/ground/grazing/CARM_ActualGrazingInfov3_2013-2023.csv")
+apar<- read.csv("../data/training/iapar/cper_all_year_iapar_2014_2022.csv")
+sos <- read.csv("../data/training/iapar/cper_sos_2014_2022.csv")
+# cleaning sos
+sos <- sos %>%
+  select(Year, Id, SOS_date)
+
+#cleaning iapar
+apar$Date <- ymd(apar$Date)
+# apar <- iapar %>%
+#   select(Id,Year,Date, APAR_adjusted,NDVI_smooth_avg)%>%
+#   separate(Id, into = c("Pasture","Plot"), sep = "_")%>%
+#   filter(!is.na(Date))
+  
+str(apar)
+
+# cleaning grazing dates
+grazing_dates$Pasture <- grazing_dates$PastureCode
+grazing_dates$DateInPasture <- as.Date(grazing_dates$DateInPasture, format = "%m/%d/%Y")
+grazing_dates$DateOutPasture <- as.Date(grazing_dates$DateOutPasture, format = "%m/%d/%Y")
+grazing_dates$Year <- as.factor(grazing_dates$Year)
+grazing_dates <- grazing_dates %>%
+  select(Year,DateInPasture,DateOutPasture,Pasture)
+
+
+#merging and cleaning data
+df_select <- df %>%
+  distinct(Year,Pasture,Graze_timing,Treatment,Id,Date)%>%
+  rename(SamplingDate = Date)
+
+grazing_timing <- right_join(df_select, grazing_dates, by = c("Pasture","Year"))
+
+#adding graze timing dates and factors to filtered data set
+filtered_df2 <- merge(apar,grazing_timing, by = c("Id","Year"),all.x = TRUE)
+
+#adding sos date to filtered data set
+filtered_df2 <- merge(filtered_df2,sos, by = c("Id","Year"),all.x = TRUE)
+
+# str(filtered_ndvi)
+filtered_df2$Date <- ymd(filtered_df2$Date)
+filtered_df3 <- filtered_df2 %>%
+  filter(Year == "2022") %>%
+  filter(!is.na(Treatment))%>%
+  # filter(!is.na(DateInPasture))%>%
+  ungroup()
+filtered_df3$Date <- ymd(filtered_df3$Date)
+filtered_df3$SOS_date <- ymd(filtered_df3$SOS_date)
+filtered_df3$SamplingDate<- ymd(filtered_df3$SamplingDate)
+str(filtered_df3)
+
+
+# Split your data frame into a list of data frames for each Year/Pasture combination
+df_list <- sample(split(filtered_df3, list(filtered_df3$Id, filtered_df3$Year)))
+
+
+# Obtain the overall min and max values for NDVI_smooth_avg and APAR_modified
+overall_min_ndvi <- min(sapply(df_list, function(filtered_df3) min(filtered_df3$NDVI_smooth_avg, na.rm = TRUE)))
+overall_max_ndvi <- max(sapply(df_list, function(filtered_df3) max(filtered_df3$NDVI_smooth_avg, na.rm = TRUE)))
+
+overall_min_apar <- min(sapply(df_list, function(filtered_df3) min(filtered_df3$APAR_adjusted, na.rm = TRUE)))
+overall_max_apar <- max(sapply(df_list, function(filtered_df3) max(filtered_df3$APAR_adjusted, na.rm = TRUE)))
+
+generate_plots <- function(df) {
+  # Create NDVI_smooth_avg plot
+
+  plot_ndvi <- ggplot(df, aes(x = Date, y = NDVI_smooth_avg)) +
+    geom_line() +
+    scale_color_brewer(palette = "Set1") +
+    scale_y_continuous(limits = c(overall_min_ndvi, overall_max_ndvi)) +  # standardize y-axis
+    theme_minimal() +
+    labs(title = paste(unique(df$Year), unique(df$Id), "smoothed NDVI", sep = " / "),
+         x = "Date",
+         y = "smoothed NDVI") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+ 
+    geom_vline(xintercept = df$DateInPasture, color = "green") +
+    geom_vline(xintercept = df$DateOutPasture, color = "red")+ 
+    mytheme() 
+  
+  # Create APAR plot
+  # Create a subset for the shaded region
+  shaded_region <- df[df$Date >= df$SOS_date & df$Date <= df$SamplingDate,]
+  # 
+  # Create APAR plot
+  plot_apar <- ggplot(df, aes(x = Date, y = APAR_adjusted)) +
+    geom_line() +
+    geom_vline(xintercept = as.numeric(df$SOS_date), linetype = "dashed", color = "red") + # Add SOS_date line
+    geom_vline(xintercept = as.numeric(df$SamplingDate), linetype = "dashed", color = "blue") +
+    geom_ribbon(data = shaded_region, aes(x = Date, ymin = overall_min_apar, ymax = APAR_adjusted), fill = "grey") +
+    scale_color_brewer(palette = "Set1") +
+    scale_y_continuous(limits = c(overall_min_apar, overall_max_apar)) +  # standardize y-axis # standardize y-axis
+    mytheme() +
+    labs(title = paste(unique(df$Year), unique(df$Id), "APAR", sep = " / "),
+         x = "Date",
+         y = "Adjusted APAR") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  # Return list of plots
+  list(plot_ndvi, plot_apar)
+}
+
+invisible(lapply(df_list, function(filtered_df3) dim(filtered_df3)[1]))
+
+
+# Generate plots for each Year/Pasture combination
+plots_list <- lapply(df_list, generate_plots)
+
+
+# Create a list to save grid of plots for each page
+plot_pages <- list()
+
+# Number of pages
+num_pages <- ceiling(length(plots_list) / 4)
+
+plots_list["25SE_P4.2022"]
+# Iterate over each page
+for (i in 1:num_pages) {
+  # Select plots for this page
+  plots <- plots_list[((i - 1) * 4 + 1):(i * 4)]
+  
+  # Flatten the list of lists
+  plots <- unlist(plots, recursive = FALSE)
+  
+  # Arrange plots into a grid
+  grid <- ggarrange(plotlist = plots, ncol = 2, nrow = 2)
+  
+  # Add grid to list of pages
+  plot_pages[[i]] <- grid
+}
+
+
 
