@@ -19,6 +19,8 @@ library(sjmisc)
 library(effects)
 library(sjstats) #use for r2 functions
 library(broom.mixed)
+library(mgcv)
+
 getwd()
 
 inPATH = '../data/training/iapar/model_selection_data.csv'
@@ -30,15 +32,73 @@ df$Treatment <- as.factor(df$Treatment)
 df$Block <- as.factor(df$Block)
 df$Ecosite <- as.factor(df$Ecosite)
 df$Graze_timing <- as.factor(df$Graze_timing)
+df$Graze_timing  <-  factor(df$Graze_timing, levels = c("Ungrazed","Pulse","Season-long"))
+str(df)
+response_var <-  'Total_Biomass'
 
-response_var <-  'Total_Biomass_sqrt'
+#Using a lmer ----
+global.model.graze<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing:iAPAR + Ecosite:iAPAR + (1|Year) + (1|Block)"),
+                         na.action = "na.fail", data=df)
+anova(global.model.graze)
+summary(global.model.graze)
+plot(global.model.graze)
 
-#global model graze used in dredge ----
-# global.model.graze<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing + Ecosite + Graze_timing:iAPAR + Ecosite:iAPAR + (1|Year) + (1|Year:Block)"),
-#                                 na.action = "na.fail", data=df)
-global.model.graze<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing:iAPAR + Ecosite:iAPAR + (1|Year) + (1|Year:Block)"),
+
+# Calculate Cook's distance and leverage
+cooksd <- cooks.distance(global.model.graze)
+leverage <- hatvalues(global.model.graze)
+
+hist(df$Total_Biomass)
+hist(df$Total_Biomass_sqrt)
+
+# Identify outliers based on Cook's distance and leverage
+outliers <- which(cooksd > 1 | leverage > 2)
+outliers
+# Check for normality of residuals
+hist(residuals(global.model.graze))
+qqnorm(residuals(global.model.graze))
+shapiro.test(residuals(global.model.graze))
+
+# Check for multicollinearity (collinear if VIF > 5-10)
+vif(global.model.graze)
+
+
+# !!!!r2 does not take into account random effects!!!!
+r.squaredGLMM(global.model.graze)
+
+#glmer with poisson distribution ----
+# model.graze.glmer<-glmer(paste0(response_var, " ~ iAPAR + Graze_timing + Ecosite + Graze_timing:iAPAR + Ecosite:iAPAR + (1|Year) + (1|Year:Block)"),
+#                           na.action = "na.fail", data=df, family = Gamma)
+# 
+# summary(model.graze.glmer)
+
+#Using a GAM ----
+graze.gam <- gam(Total_Biomass~ iAPAR + s(iAPAR, by = Graze_timing) + s(iAPAR, by= Ecosite) +
+                        s(Year,bs = 're') + s(Block,bs = 're'), data = df, method = 'REML')
+
+summary(graze.gam)
+
+# plot(graze.gam)
+par(mfrow=c(2,2))
+plot(graze.gam, se=T)
+
+#Model selection ----
+##global model graze used in dredge -----
+global.model.graze<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing + Ecosite + Graze_timing:iAPAR + Ecosite:iAPAR + (1|Year) + (1|Year:Block)"),
+                                na.action = "na.fail", data=df)
+anova(global.model.graze)
+summary(global.model.graze)
+#set ungrazed category to be first, order factor, could set it up in formula, set contrasts
+
+
+anova(global.model.graze)
+global.model.graze<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing  + Graze_timing:iAPAR + Ecosite:iAPAR +  (1|Ecosite)+ (1|Year) + (1|Year:Block)"),
                          na.action = "na.fail", data=df)
 
+
+global.model.graze<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing:iAPAR + Ecosite:iAPAR + (1|Year) + (1|Year:Block)"),
+                         na.action = "na.fail", data=df)
+anova(global.model.graze)
 global.model.graze
 
 #dredge model
@@ -54,9 +114,12 @@ summary(model_summary.graze)
 cooksd <- cooks.distance(top_model.graze)
 leverage <- hatvalues(top_model.graze)
 
+hist(df$Total_Biomass)
+hist(df$Total_Biomass_sqrt)
+
 # Identify outliers based on Cook's distance and leverage
 outliers <- which(cooksd > 1 | leverage > 2)
-
+outliers
 # Check for normality of residuals
 hist(residuals(top_model.graze))
 qqnorm(residuals(top_model.graze))
@@ -120,6 +183,8 @@ gg_ecosite_graze_yr <- ggplot() +
   geom_point(data = df, aes(x = iAPAR, y = Total_Biomass, color = Ecosite)) +
   geom_smooth(data = df, aes(x = iAPAR, y = predict_transformed , color = Ecosite), size = 1,method = "lm", se = TRUE) +
   facet_wrap(~ Year) +
+  geom_abline(slope = coef(top_model.graze)[["Petal.Width"]], 
+              intercept = coef(top_model.graze)[["(Intercept)"]])
   # stat_poly_line() +
   # stat_poly_eq(data = df,aes(x = iAPAR, y = predict, color = Ecosite))+
   theme_bw()
