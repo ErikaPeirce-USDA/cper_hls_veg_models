@@ -9,16 +9,15 @@ library(lubridate)
 library(reshape2)
 library(ggplot2)
 library(lmerTest)
-library(sjPlot)
 library(emmeans)
 library(ggeffects)
 library(ggpmisc)
 library(cowplot) #for manuscript ready figures
 library(lme4) #for lmer & glmer models
-library(sjPlot) #for plotting lmer and glmer mods
+# library(sjPlot) #for plotting lmer and glmer mods
 library(sjmisc) 
 library(effects)
-library(sjstats) #use for r2 functions
+# library(sjstats) #use for r2 functions
 # library(broom.mixed)
 # library(mgcv)
 library(scales)
@@ -53,7 +52,7 @@ rap_df$Id <- rap_df$Plot
 rap_df$Year <- lubridate::year(rap_df$time)
 rap_df$Year <- as.factor(rap_df$Year)
 #Load model training data
-inPATH = '../data/training/iapar/model_selection/cper_biomass_iapar_2014_2022_all.csv'
+inPATH = '../data/training/iapar/model_selection/cper_biomass_iapar_2014_2022_carm.csv'
 
 raw_df = read.csv(inPATH)
 
@@ -338,58 +337,50 @@ gg_graze_fe <- ggplot() +
 gg_graze_fe
 
 # Model with HEAVY Treatment ----
-gg_hvy1 <- ggplot() +
-  geom_point(data = df_all, aes(x = iAPAR, y = Total_Biomass, color = Graze_management,shape = Graze_management),size = 1.2,alpha = 0.5) +
-  # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
-  geom_smooth(data = df_all, aes(x = iAPAR, y = Total_Biomass, color = Graze_management), linetype = "longdash", size = 1,method = "lm", se = FALSE) +
-  mytheme() +
-  labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)))+
-  scale_shape_manual(values=c(15,17,19,16))+
-  scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D","purple"))+
-  facet_grid(.~ Ecosite)
-gg_hvy1
+# gg_hvy1 <- ggplot() +
+#   geom_point(data = df_all, aes(x = iAPAR, y = Total_Biomass, color = Graze_management,shape = Graze_management),size = 1.2,alpha = 0.5) +
+#   # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
+#   geom_smooth(data = df_all, aes(x = iAPAR, y = Total_Biomass, color = Graze_management), linetype = "longdash", size = 1,method = "lm", se = FALSE) +
+#   mytheme() +
+#   labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)))+
+#   scale_shape_manual(values=c(15,17,19,16))+
+#   scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D","purple"))+
+#   facet_grid(.~ Ecosite)
+# gg_hvy1
 
 df_all2 <- df_all %>%
   filter(Year %in% c('2019','2020','2021','2022'))%>%
   filter(Ecosite == "Loamy")
 
-gg_hvy2 <- ggplot() +
-  geom_point(data = df_all2, aes(x = iAPAR, y = Total_Biomass, color = Graze_management,shape = Graze_management),size = 1.2,alpha = 0.5) +
-  # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
-  geom_smooth(data = df_all2, aes(x = iAPAR, y = Total_Biomass, color = Graze_management), linetype = "longdash", size = 1,method = "lm", se = FALSE) +
-  mytheme() +
-  labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)))+
-  scale_shape_manual(values=c(15,17,19,16))+
-  scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D","#228B22"))+
-  facet_grid(.~ Ecosite)
-gg_hvy2
+# gg_hvy2 <- ggplot() +
+#   geom_point(data = df_all2, aes(x = iAPAR, y = Total_Biomass, color = Graze_management,shape = Graze_management),size = 1.2,alpha = 0.5) +
+#   # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
+#   geom_smooth(data = df_all2, aes(x = iAPAR, y = Total_Biomass, color = Graze_management), linetype = "longdash", size = 1,method = "lm", se = FALSE) +
+#   mytheme() +
+#   labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)))+
+#   scale_shape_manual(values=c(15,17,19,16))+
+#   scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D","#228B22"))+
+#   facet_grid(.~ Ecosite)
+# gg_hvy2
 
-all_trt_model<-lmer(paste0(response_var, " ~ iAPAR + Graze_management:iAPAR  + (1 + iAPAR|Year) + (1|Id) "),
-                         na.action = "na.fail", data=df_all2)
-
-anova(all_trt_model)
-summary(all_trt_model)
-plot(all_trt_model)
-
-emm_graze <- emmeans(all_trt_model, pairwise ~ Graze_management)
-emm_graze
-
-
-multcomp::cld(emm_graze, alpha = 0.05, Letters = letters)
-
-pwpp_ecograze <- pwpp(emm_graze_eco)
-pwpp_ecograze
+# all_trt_model<-lmer(paste0(response_var, " ~ iAPAR + Graze_management:iAPAR  + (1 + iAPAR|Year) + (1|Id) "),
+#                          na.action = "na.fail", data=df_all2)
+# 
+# anova(all_trt_model)
+# summary(all_trt_model)
+# plot(all_trt_model)
+# 
+# emm_graze <- emmeans(all_trt_model, pairwise ~ Graze_management)
+# emm_graze
+# 
+# 
+# multcomp::cld(emm_graze, alpha = 0.05, Letters = letters)
+# 
+# pwpp_ecograze <- pwpp(emm_graze_eco)
+# pwpp_ecograze
 
 
 # graphing RAP ----
-#summary graphs to check infestation rates
-# Calculate the slope based on the axis scales
-x_range <- range(df2$iAPAR)
-y_range <- range(df2$RAP_herb_kg_ha)
-slope <- diff(y_range) / diff(x_range)
-
-# Add a 1:1 reference line with the calculated slope
-p + geom_abline(intercept = y_range[1] - slope * x_range[1], slope = slope, color = "red")
 
 gg_rap_pred <- ggplot() +
   geom_point(data = df, aes(x = Total_Biomass, y = RAP_herb_kg_ha, color = Graze_timing,shape = Graze_timing),size = 1.2,alpha = 0.5) +
@@ -397,7 +388,7 @@ gg_rap_pred <- ggplot() +
   geom_smooth(data = df, aes(x = Total_Biomass, y = RAP_herb_kg_ha, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
   mytheme() +
   ylim(0,3500)+
-  labs(title = "",y = bquote("RAP Predicted ANHP" (MJ/m^-2)), x = bquote("ANHP" (kg/ha^-1)))+
+  labs(title = "",y = bquote("RAP Predicted ANHP" (kg/ha^-1)), x = bquote("Ground collected ANHP" (kg/ha^-1)))+
   scale_shape_manual(values=c(15,17,19))+
   scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D"))+
   geom_abline(slope = 1, intercept = 0)+
@@ -410,7 +401,7 @@ gg_iapar_pred <- ggplot() +
   geom_smooth(data = df, aes(x = Total_Biomass, y = predict_fe, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
   mytheme() +
   ylim(0,3500)+
-  labs(title = "",y = bquote("iAPAR Predicted ANHP" (MJ/m^-2)), x = bquote("ANHP" (kg/ha^-1)))+
+  labs(title = "",y = bquote("iAPAR Predicted ANHP" (kg/ha^-1)), x = bquote("Ground collected ANHP" (kg/ha^-1)))+
   scale_shape_manual(values=c(15,17,19))+
   scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D"))+
   geom_abline(slope = 1, intercept = 0)+
@@ -503,12 +494,11 @@ library(flextable)
 library(dplyr)
 library(forcats)
 library(tidyverse)
-library(flextable)
 library(officer)
 library(scales)
 
 my_theme_tbl <- function(x, ...) {
-  x <- colformat_double(x, big.mark = "'", decimal.mark = ",", digits = 1)
+  x <- colformat_double(x, big.mark = "'", decimal.mark = ".",digits = 2)
   x <- set_table_properties(x, layout = "fixed")
   x <- border_remove(x)
   std_border <- fp_border(width = 1, color = "grey")
@@ -518,8 +508,8 @@ my_theme_tbl <- function(x, ...) {
                  border = fp_border(color = "black", 
                                     width = 2, 
                                     style = "solid"))
-  x <- colformat_num(x, decimal.mark = ".")
-  x <- colformat_double(x, digits = 4)
+  # x <- colformat_num(x, decimal.mark = ".")
+  # x <- colformat_double(x, digits = 4)
   autofit(x)
 }
 
@@ -563,7 +553,21 @@ ft1 <- ft1 %>%
   #    j = "Ecosite",
   #    part = "body")
 ft1
+ft2 <- footnote(ft1,
+                 i = 1, j = 4:6,
+                 value = as_paragraph(
+                   c(
+                     "This is footnote one",
+                     "This is footnote two",
+                     "This is footnote three"
+                   )
+                 ),
+                 ref_symbols = c("a", "b", "c"),
+                 part = "header"
+)
 
+
+ft2
 # save_as_docx(
 #   "RAP vs iAPAR production predictions" = ft1,
 #   path = "./tables/rap_vs_iAPAR.docx")
@@ -620,8 +624,9 @@ sos$SOS_date <- ymd(sos$SOS_date)
 sos <- sos %>%
   select(Year, Id, SOS_date)%>%
   separate(Id, into = c("Pasture","Plot"), sep = "_")%>%
-  group_by(Pasture)%>%
-  summarize(SOS_date = mean(SOS_date))
+  group_by(Pasture,Year)%>%
+  summarize(SOS_date = mean(SOS_date))%>%
+  mutate(Pasture = recode(Pasture, "10S"="NH"))
   
 
 #cleaning iapar
@@ -630,7 +635,8 @@ apar <- apar %>%
   select(Id,Year,Date, APAR_adjusted,NDVI_smooth_avg)%>%
   separate(Id, into = c("Pasture","Plot"), sep = "_")%>%
   group_by(Pasture,Year,Date)%>%
-  summarize(APAR_mean = mean(APAR_adjusted),NDVI_mean = mean(NDVI_smooth_avg))
+  summarize(APAR_mean = mean(APAR_adjusted),NDVI_mean = mean(NDVI_smooth_avg))%>%
+  mutate(Pasture = recode(Pasture, "10S"="NH"))
 #   filter(!is.na(Date))
   
 str(apar)
@@ -641,13 +647,16 @@ grazing_dates$DateInPasture <- as.Date(grazing_dates$DateInPasture, format = "%m
 grazing_dates$DateOutPasture <- as.Date(grazing_dates$DateOutPasture, format = "%m/%d/%Y")
 grazing_dates$Year <- as.factor(grazing_dates$Year)
 grazing_dates <- grazing_dates %>%
-  select(Year,DateInPasture,DateOutPasture,Pasture)
+  select(Year,DateInPasture,DateOutPasture,Pasture)%>%
+  mutate(Pasture = recode(Pasture, "10S"="NH"))
+
 
 
 #merging and cleaning data
 df_select <- df %>%
   distinct(Year,Pasture,Graze_timing,Treatment,Date)%>%
-  rename(SamplingDate = Date)
+  rename(SamplingDate = Date)%>%
+  mutate(Pasture = recode(Pasture, "10S"="NH"))
 
 grazing_timing <- right_join(df_select, grazing_dates, by = c("Pasture","Year"))
 
@@ -660,7 +669,7 @@ filtered_df2 <- merge(filtered_df2,sos, by = c("Pasture","Year"),all.x = TRUE)
 # str(filtered_ndvi)
 filtered_df2$Date <- ymd(filtered_df2$Date)
 filtered_df3 <- filtered_df2 %>%
-  filter(Year == "2021") %>%
+  filter(Year == "2019") %>%
   filter(!is.na(Treatment))%>%
   # filter(!is.na(DateInPasture))%>%
   ungroup()
@@ -671,27 +680,27 @@ str(filtered_df3)
 
 
 # Split your data frame into a list of data frames for each Year/Pasture combination
-df_list <- sample(split(filtered_df3, list(filtered_df3$Id, filtered_df3$Year)))
+df_list <- sample(split(filtered_df3, list(filtered_df3$Pasture, filtered_df3$Year)))
 
 
 # Obtain the overall min and max values for NDVI_smooth_avg and APAR_modified
-overall_min_ndvi <- min(sapply(df_list, function(filtered_df3) min(filtered_df3$NDVI_smooth_avg, na.rm = TRUE)))
-overall_max_ndvi <- max(sapply(df_list, function(filtered_df3) max(filtered_df3$NDVI_smooth_avg, na.rm = TRUE)))
+overall_min_ndvi <- min(sapply(df_list, function(filtered_df3) min(filtered_df3$NDVI_mean, na.rm = TRUE)))
+overall_max_ndvi <- max(sapply(df_list, function(filtered_df3) max(filtered_df3$NDVI_mean, na.rm = TRUE)))
 
-overall_min_apar <- min(sapply(df_list, function(filtered_df3) min(filtered_df3$APAR_adjusted, na.rm = TRUE)))
-overall_max_apar <- max(sapply(df_list, function(filtered_df3) max(filtered_df3$APAR_adjusted, na.rm = TRUE)))
+overall_min_apar <- min(sapply(df_list, function(filtered_df3) min(filtered_df3$APAR_mean, na.rm = TRUE)))
+overall_max_apar <- max(sapply(df_list, function(filtered_df3) max(filtered_df3$APAR_mean, na.rm = TRUE)))
 
 generate_plots <- function(df) {
   # Create NDVI_smooth_avg plot
 
-  plot_ndvi <- ggplot(df, aes(x = Date, y = NDVI_smooth_avg)) +
+  plot_ndvi <- ggplot(df, aes(x = Date, y = NDVI_mean)) +
     geom_line() +
     scale_color_brewer(palette = "Set1") +
     scale_y_continuous(limits = c(overall_min_ndvi, overall_max_ndvi)) +  # standardize y-axis
     theme_minimal() +
-    labs(title = paste(unique(df$Year), unique(df$Id), "smoothed NDVI", sep = " / "),
+    labs(title = paste(unique(df$Year), unique(df$Pasture), "smoothed NDVI", sep = " / "),
          x = "Date",
-         y = "smoothed NDVI") +
+         y = "NDVI") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))+ 
     geom_vline(xintercept = df$DateInPasture, color = "green") +
     geom_vline(xintercept = df$DateOutPasture, color = "red")+ 
@@ -702,19 +711,20 @@ generate_plots <- function(df) {
   shaded_region <- df[df$Date >= df$SOS_date & df$Date <= df$SamplingDate,]
   # 
   # Create APAR plot
-  plot_apar <- ggplot(df, aes(x = Date, y = APAR_adjusted)) +
+  plot_apar <- ggplot(df, aes(x = Date, y = APAR_mean)) +
     geom_line() +
-    geom_ribbon(data = shaded_region, aes(x = Date, ymin = overall_min_apar, ymax = APAR_adjusted), fill = "grey") +
-    geom_vline(xintercept = as.numeric(df$SOS_date), linetype = "dashed", color = "red") + # Add SOS_date line
-    geom_vline(xintercept = as.numeric(df$SamplingDate), linetype = "dashed", color = "blue") +
-    geom_vline(xintercept = df$DateInPasture, color = "green") +
-    geom_vline(xintercept = df$DateOutPasture, color = "red")+ 
+    geom_ribbon(data = shaded_region, aes(x = Date, ymin = overall_min_apar, ymax = APAR_mean), fill = "grey") +
+    geom_vline(xintercept = as.numeric(df$SOS_date), linetype = "dashed", color = "#648FFF") + # Add SOS_date line
+    geom_vline(xintercept = as.numeric(df$SamplingDate), linetype = "dashed", color = "#DC267F") +
+    geom_vline(xintercept = df$DateInPasture, color = "#785EF0") +
+    geom_vline(xintercept = df$DateOutPasture, color = "#FFB000")+ 
         scale_color_brewer(palette = "Set1") +
-    scale_y_continuous(limits = c(overall_min_apar, overall_max_apar)) +  # standardize y-axis # standardize y-axis
+    scale_y_continuous(limits = c(overall_min_apar, overall_max_apar)) +
+    scale_x_date(breaks = "1 month", date_labels = "%b")+# standardize y-axis # standardize y-axis
     mytheme() +
-    labs(title = paste(unique(df$Year), unique(df$Id), "APAR", sep = " / "),
+    labs(title = paste(unique(df$Year), unique(df$Pasture), "APAR", sep = " / "),
          x = "Date",
-         y = "Adjusted APAR") +
+         y = expression(paste("APAR", (MJ/m^-2)))) +
     theme(axis.text.x = element_text(angle = 0, hjust = 1))
   # Return list of plots
   list(plot_ndvi, plot_apar)
@@ -732,18 +742,16 @@ plot_pages <- list()
 
 # Number of pages
 num_pages <- ceiling(length(plots_list) / 4)
-p1 <- plots_list["21N_P1.2021"][[1]]
-
-p2 <- plots_list["24W_P1.2021"][[1]]
-p2
-p1 <- plots_list["21N_P1.2021"][[1]][2]
+p1 <- plots_list["NH.2019"][[1]][2]
 p1
-p2 <- plots_list["17S_P1.2021"][[1]][2]
+p2 <- plots_list["15E.2019"][[1]][2]
 p2
-p3 <- plots_list["31E_P1.2021"][[1]][2]
+p3 <- plots_list["21N.2019"][[1]][2]
 p3
-p4 <- plots_list["18S_P1.2021"][[1]][2]
+p4 <- plots_list["31W.2019"][[1]][2]
 p4
+
+
 
 grid_apar <- plot_grid(p1[[1]],p2[[1]],p3[[1]],p4[[1]])
 grid_apar
@@ -754,30 +762,83 @@ grid_apar
 #        width = 8, height = 8, units = "in",
 #        dpi = 300)
 
-# Iterate over each page
-for (i in 1:num_pages) {
-  # Select plots for this page
-  plots <- plots_list[((i - 1) * 4 + 1):(i * 4)]
-  
-  # Flatten the list of lists
-  plots <- unlist(plots, recursive = FALSE)
-  
-  # Arrange plots into a grid
-  grid <- ggarrange(plotlist = plots, ncol = 2, nrow = 2)
-  
-  # Add grid to list of pages
-  plot_pages[[i]] <- grid
-}
+# # Iterate over each page
+# for (i in 1:num_pages) {
+#   # Select plots for this page
+#   plots <- plots_list[((i - 1) * 4 + 1):(i * 4)]
+# 
+#   # Flatten the list of lists
+#   plots <- unlist(plots, recursive = FALSE)
+# 
+#   # Arrange plots into a grid
+#   grid <- ggarrange(plotlist = plots, ncol = 2, nrow = 2)
+# 
+#   # Add grid to list of pages
+#   plot_pages[[i]] <- grid
+# }
+# 
+# # Create a new PDF file
+# pdf("APAR_timeseries.pdf")
+# 
+# # Iterate over plot_pages and print each one to the PDF
+# for(page in plot_pages) {
+#   print(page)
+# }
+# 
+# # Close the PDF file
+# invisible(dev.off())
 
-# Create a new PDF file
-pdf("APAR_timeseries.pdf")
+# plot NDVI ----
+#NH
+#21N
+#15E
+filtered_df4 <- filtered_df3 %>%
+  filter(Pasture %in% c("NH","15E")) 
 
-# Iterate over plot_pages and print each one to the PDF
-for(page in plot_pages) {
-  print(page)
-}
+ndvi_1 <- ggplot(filtered_df4, aes(x = Date, y = NDVI_mean, color = Pasture)) +
+  geom_line(size = 0.5) +
+  scale_color_manual(values = c("#599E7D","#1B367A")) +
+  scale_y_continuous(limits = c(overall_min_ndvi, overall_max_ndvi)) + 
+  scale_x_date(breaks = "1 month", date_labels = "%b")+# standardize y-axis
+  theme_minimal() +
+  labs(title = paste(unique(filtered_df4$Year), unique(filtered_df4$Pasture), "smoothed NDVI", sep = " / "),
+       x = "Date",
+       y = "smoothed NDVI") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1))+ 
+  geom_vline(xintercept = filtered_df4$DateInPasture, color = "#648FFF") +
+  geom_vline(xintercept = filtered_df4$DateOutPasture, color = "#DC267F")+ #facet_grid(.~Pasture)+
+  mytheme() + theme(legend.position = "none") 
+ndvi_1
 
-# Close the PDF file
-invisible(dev.off())
+
+filtered_df4 <- filtered_df3 %>%
+  filter(Pasture %in% c("NH","21N")) 
+
+ndvi_2 <- ggplot(filtered_df4, aes(x = Date, y = NDVI_mean, color = Pasture)) +
+  geom_line(size = 0.5) +
+  scale_color_manual(values = c("#FE6100","#1B367A")) +
+  scale_y_continuous(limits = c(overall_min_ndvi, overall_max_ndvi)) + 
+  scale_x_date(breaks = "1 month", date_labels = "%b")+# standardize y-axis
+  theme_minimal() +
+  labs(title = paste(unique(filtered_df4$Year), unique(filtered_df4$Pasture), "smoothed NDVI", sep = " / "),
+       x = "Date",
+       y = "smoothed NDVI") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1))+ 
+  geom_vline(xintercept = filtered_df4$DateInPasture, color = "#648FFF") +
+  geom_vline(xintercept = filtered_df4$DateOutPasture, color = "#DC267F")+ #facet_grid(.~Pasture)+
+  mytheme() + theme(legend.position = "none") 
+ndvi_2
+
+ndvi_grid <- plot_grid(ndvi_1,ndvi_2)
+ndvi_grid
+
+# ggsave(filename = "./figures/ndvi_examples.pdf",
+#        plot = ndvi_grid, #this is what you named your plot as, in this case our first plot is g1
+#        bg = "transparent",
+#        width = 8, height = 4, units = "in",
+#        dpi = 300)
+
+
+
 
 
