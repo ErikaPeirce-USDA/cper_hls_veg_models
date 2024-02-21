@@ -27,6 +27,7 @@ library(explore)
 library(gridExtra)
 library(ggpubr)
 
+
 mytheme<-function ()
 {
   theme(
@@ -94,6 +95,7 @@ global.model.graze<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing + Ecosite
 Anova(global.model.graze, type = 3)
 summary(global.model.graze)
 plot(global.model.graze)
+plot(ranef(global.model.graze))
 
 emm_graze <- emmeans(global.model.graze, pairwise ~ Graze_timing)
 emm_graze
@@ -211,7 +213,7 @@ coefficients.graze2 <- coefficients.graze2 %>%
 
 str(coefficients.graze2)
 coefficients.graze2 <- coefficients.graze2 %>%
-  mutate(Variables = fct_relevel(Variables, c("iAPAR","Season-long moderately grazed","Ungrazed", "Pulse-grazed", 
+  mutate(Variables = fct_relevel(Variables, c("iAPAR","Ungrazed", "Pulse-grazed", "Season-long moderately grazed",
                                               "Sandy Ecosite", "Salt Flats Ecosite", "Loamy Ecosite",
                                               "iAPAR:Season-long moderately grazed","iAPAR:Ungrazed","iAPAR:Pulse-grazed",
                                               "iAPAR:Loamy Ecosite","iAPAR:Salt Flats Ecosite","iAPAR:Sandy Ecosite",
@@ -252,10 +254,10 @@ coeff.gg <- ggplot(coefficients.graze2, aes(x = forcats::fct_inorder(Variables),
    # ylim(-2,12)
 coeff.gg
 
-# ggsave(filename = "./figures/gg_coeff.pdf",
+# ggsave(filename = "./figures/gg_coeff.png",
 #        plot = coeff.gg, #this is what you named your plot as, in this case our first plot is g1
 #        bg = "transparent",
-#        width = 8, height = 8, units = "in",
+#        width = 8, height = 9, units = "in",
 #        dpi = 300)
 
 # graphing ecosite ----
@@ -370,23 +372,35 @@ df_all2 <- df_all %>%
                                                     "Ungrazed","Pulse-grazed")))
 
 
-  arrange(Variables)
-
 gg_hvy2 <- ggplot() +
   geom_point(data = df_all2, aes(x = iAPAR, y = Total_Biomass, color = Graze_timing,shape = Graze_timing),size = 1.2,alpha = 0.5) +
   # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
   geom_smooth(data = df_all2, aes(x = iAPAR, y = Total_Biomass, color = Graze_timing), linetype = "longdash", size = 1,method = "lm", se = FALSE) +
   mytheme() +
-  labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)))+
+  labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)),
+       color = "Grazing management", shape = "Grazing management")+
   scale_shape_manual(values=c(15,17,19,16))+
   scale_color_manual(values = c("#228B22","#E72F85", "#5D879D", "#D8955D"))+
   facet_grid(.~ Ecosite)
 gg_hvy2
 
+
 all_trt_model<-lmer(paste0(response_var, " ~ iAPAR + Graze_timing + Graze_timing:iAPAR + (1|Year) + (1|Id)"),
                          na.action = "na.fail", data=df_all2)
 
-anova(all_trt_model)
+gg_hvy2 <- ggplot() +
+  geom_point(data = df_all2, aes(x = iAPAR, y = Total_Biomass, color = Pasture,shape = Pasture),size = 1.2,alpha = 0.5) +
+  # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
+  geom_smooth(data = df_all2, aes(x = iAPAR, y = Total_Biomass, color = Pasture), linetype = "longdash", size = 1,method = "lm", se = FALSE) +
+  mytheme() +
+  labs(title = "",x = bquote("iAPAR" (MJ/m^-2)), y = bquote("ANHP" (kg/ha^-1)),
+       color = "Grazing management", shape = "Grazing management")+
+  # scale_shape_manual(values=c(15,17,19,16))+
+  # scale_color_manual(values = c("#228B22","#E72F85", "#5D879D", "#D8955D"))+
+  facet_grid(.~ Ecosite)
+gg_hvy2
+
+Anova(all_trt_model, type = 3)
 summary(all_trt_model)
 plot(all_trt_model)
 
@@ -396,11 +410,32 @@ emm_graze
 # 
 multcomp::cld(emm_graze, alpha = 0.05, Letters = letters)
 
-pwpp_ecograze <- pwpp(emm_graze_eco)
-pwpp_ecograze
+# pwpp_ecograze <- pwpp(emm_graze_eco)
+# pwpp_ecograze
 
+# 
+# ggsave(filename = "./figures/gg_graze_heavy.png",
+#        plot = gg_hvy2, #this is what you named your plot as, in this case our first plot is g1
+#        bg = "transparent",
+#        width = 6, height = 4, units = "in",
+#        dpi = 300)
+
+#simplified iAPAR ----
+#fitting simplified model to compare RAP and iAPAR
+iapar_sim<-lm(paste0(response_var, " ~ iAPAR + Ecosite + Ecosite:iAPAR"),
+                         na.action = "na.fail", data=df)
+
+Anova(iapar_sim, type = 3)
+summary(iapar_sim)
+# plot(iapar_sim)
+
+#getting new predictions from simple model to compare to RAP
+# Get predicted values for each ecosite
+df$predict_simple <- predict(iapar_sim)
 
 # graphing RAP ----
+
+
 
 gg_rap_pred <- ggplot() +
   geom_point(data = df, aes(x = Total_Biomass, y = RAP_herb_kg_ha, color = Graze_timing,shape = Graze_timing),size = 1.2,alpha = 0.5) +
@@ -408,7 +443,8 @@ gg_rap_pred <- ggplot() +
   geom_smooth(data = df, aes(x = Total_Biomass, y = RAP_herb_kg_ha, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
   mytheme() +
   ylim(0,3500)+
-  labs(title = "",y = bquote("RAP Predicted ANHP" (kg/ha^-1)), x = bquote("Ground collected ANHP" (kg/ha^-1)))+
+  labs(title = "",y = bquote("RAP Predicted ANHP" (kg/ha^-1)), x = bquote("Ground collected ANHP" (kg/ha^-1)),
+       color = "Grazing management", shape = "Grazing management")+
   scale_shape_manual(values=c(15,17,19))+
   scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D"))+
   geom_abline(slope = 1, intercept = 0)+
@@ -416,12 +452,13 @@ gg_rap_pred <- ggplot() +
 gg_rap_pred
 
 gg_iapar_pred <- ggplot() +
-  geom_point(data = df, aes(x = Total_Biomass, y = predict_fe, color = Graze_timing, shape = Graze_timing),size = 1.2,alpha = 0.5) +
+  geom_point(data = df, aes(x = Total_Biomass, y = predict_simple, color = Graze_timing, shape = Graze_timing),size = 1.2,alpha = 0.5) +
   # geom_smooth(data = df, aes(x = iAPAR, y = predict, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
-  geom_smooth(data = df, aes(x = Total_Biomass, y = predict_fe, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
+  geom_smooth(data = df, aes(x = Total_Biomass, y = predict_simple, color = Graze_timing), linetype = "solid", size = 1,method = "lm", se = FALSE) +
   mytheme() +
   ylim(0,3500)+
-  labs(title = "",y = bquote("iAPAR Predicted ANHP" (kg/ha^-1)), x = bquote("Ground collected ANHP" (kg/ha^-1)))+
+  labs(title = "",y = bquote("iAPAR Predicted ANHP" (kg/ha^-1)), x = bquote("Ground collected ANHP" (kg/ha^-1)),
+       color = "Grazing management", shape = "Grazing management")+
   scale_shape_manual(values=c(15,17,19))+
   scale_color_manual(values = c("#E72F85", "#5D879D", "#D8955D"))+
   geom_abline(slope = 1, intercept = 0)+
@@ -431,7 +468,7 @@ gg_iapar_pred
 rap_grid1 <- plot_grid(gg_rap_pred, gg_iapar_pred, labels=c("RAP predictions", "iAPAR predictions"), ncol = 1, nrow = 2)
 rap_grid1
 
-# ggsave(filename = "./figures/gg_rap_iapar_pred.pdf",
+# ggsave(filename = "./figures/gg_rap_iapar_pred.png",
 #        plot = rap_grid1, #this is what you named your plot as, in this case our first plot is g1
 #        bg = "transparent",
 #        width = 8, height = 8, units = "in",
@@ -440,47 +477,57 @@ rap_grid1
 # calculate prediction errors ----
 
 ### MAPE ----
-df$rap_mape <- abs(df$RAP_herb_kg_ha - df$Total_Biomass)/df$Total_Biomass
+df$rap_mape <- abs(df$Total_Biomass - df$RAP_herb_kg_ha)/df$Total_Biomass
 rap_mape <- mean(df$rap_mape)
 
-df$iapar_mape <- abs(df$predict_fe - df$Total_Biomass)/df$Total_Biomass
+df$rap_mpe <- (df$Total_Biomass - df$RAP_herb_kg_ha)/df$Total_Biomass
+rap_mpe <- mean(df$rap_mpe)
+
+df$iapar_mape <- abs(df$Total_Biomass -df$predict_simple)/df$Total_Biomass
 iapar_mape <- mean(df$iapar_mape)
 
+df$iapar_mpe <- (df$Total_Biomass - df$predict_simple)/df$Total_Biomass
+iapar_mpe <- mean(df$iapar_mpe)
 
+write_csv( df,"../production/error_metrics_check.csv" )
 # all metrics ----
 library(Metrics)
-mae(predicted = df$predict_fe, actual = df$Total_Biomass)
+mae(predicted = df$predict_simple, actual = df$Total_Biomass)
 
 error_iapar <- df %>%
-  group_by(Ecosite, Graze_timing)%>%
+  group_by(Ecosite)%>%
   summarise(#Total_Biomass_mean = mean(Total_Biomass),
-            mae = mean(abs(Total_Biomass - predict_fe)),
+            mae = mean(abs(Total_Biomass - predict_simple)),
             mae_pct = (mae / mean(Total_Biomass)) *100,
-            mpe = (sum(Total_Biomass - predict_fe) / sum(Total_Biomass)) *100,
+            mpe = mean(iapar_mpe) * 100,
+            # bias = mean(predict_simple - Total_Biomass),
             mape = mean(iapar_mape) * 100,
-            R2pearson = (cor.test(Total_Biomass,predict_fe, method = "pearson")$estimate)^2
+            R2pearson = (cor.test(Total_Biomass,predict_simple, method = "pearson")$estimate)^2
             )
+
 error_iapar
 error_iapar$Source <- "iAPAR"
 
 error_iapar_all <- df %>%
   summarise(#Total_Biomass_mean = mean(Total_Biomass),
-            mae = mean(abs(Total_Biomass - predict_fe)),
-            mae_pct = (mae / mean(Total_Biomass)) *100,
-            mpe = (sum(Total_Biomass - predict_fe) / sum(Total_Biomass)) *100,
-            mape = mean(iapar_mape) * 100,
-            R2pearson = (cor.test(Total_Biomass,predict_fe, method = "pearson")$estimate)^2
+    mae = mean(abs(Total_Biomass - predict_simple)),
+    mae_pct = (mae / mean(Total_Biomass)) *100,
+    mpe = mean(iapar_mpe) * 100,
+    # bias = mean(predict_simple - Total_Biomass),
+    mape = mean(iapar_mape) * 100,
+    R2pearson = (cor.test(Total_Biomass,predict_simple, method = "pearson")$estimate)^2
   )
 error_iapar_all
 error_iapar_all$Source <- "iAPAR_all"
 error_iapar_all$Ecosite <- "All"
-error_iapar_all$Graze_timing <- "All"
+# error_iapar_all$Graze_timing <- "All"
 
 error_rap <- df %>%
-  group_by(Ecosite,Graze_timing)%>%
+  group_by(Ecosite)%>%
   summarise(mae = mean(abs(Total_Biomass - RAP_herb_kg_ha)),
             mae_pct = (mae / mean(Total_Biomass)) *100,
-            mpe = (sum(Total_Biomass - RAP_herb_kg_ha) / sum(Total_Biomass)) *100,
+            mpe = mean(rap_mpe) *100,
+            # bias = mean(Total_Biomass - RAP_herb_kg_ha),
             mape = mean(rap_mape) *100,
             R2pearson = (cor.test(Total_Biomass,RAP_herb_kg_ha, method = "pearson")$estimate)^2
             ) 
@@ -488,16 +535,17 @@ error_rap
 error_rap$Source <- "RAP"
 
 error_rap_all <- df %>%
-  summarise(mae = mean(abs(Total_Biomass - RAP_herb_kg_ha)),
+  summarise(mae = mean(abs( Total_Biomass - RAP_herb_kg_ha)),
             mae_pct = (mae / mean(Total_Biomass)) *100,
-            mpe = (sum(Total_Biomass - RAP_herb_kg_ha) / sum(Total_Biomass)) *100,
+            mpe = mean(rap_mpe) *100,
+            # bias = mean(RAP_herb_kg_ha - Total_Biomass),
             mape = mean(rap_mape) *100,
             R2pearson = (cor.test(Total_Biomass,RAP_herb_kg_ha, method = "pearson")$estimate)^2
   ) 
 error_rap_all
 error_rap_all$Source <- "RAP_all"
 error_rap_all$Ecosite <- "All"
-error_rap_all$Graze_timing <- "All"
+# error_rap_all$Graze_timing <- "All"
 
 # error_combined$Graze_Ecosite <- paste(error_combined$Graze_timing, "_", error_combined$Ecosite)
 
@@ -557,7 +605,7 @@ ft1 <- ft1 %>%
   merge_v(j="Source")%>%
   # valign(j=c("Ecosite"),valign = "top")%>%
   # align(j=c("Ecosite"),align = "center",part = "body")%>%
-  align(j=1:8,align = "center", part = "all")%>%
+  align(j=1:7,align = "center", part = "all")%>%
   hline(part = "body", i = 2:8)#%>%
   # add_header_row(
   #   top = TRUE,                # New header goes on top of existing header row
@@ -593,11 +641,33 @@ ft2
 #   path = "./tables/rap_vs_iAPAR.docx")
 
 # Graphing error metrics ----
-gg_metrics <- ggplot(error_combined, aes(x = Graze_timing, y = mae, fill= Source))+
+gg_metrics1 <- ggplot(error_combined, aes(x = Graze_timing, y = mae, fill= Source))+
   geom_col(position = "dodge") + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.3)) +
   facet_grid(~ Ecosite) + mytheme()
-gg_metrics
+gg_metrics1
 
+gg_metrics2 <- ggplot(error_combined, aes(x = Graze_timing, y = mae_pct, fill= Source))+
+  geom_col(position = "dodge") + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.3)) +
+  facet_grid(~ Ecosite) + mytheme()
+gg_metrics2
+
+gg_metrics3 <- ggplot(error_combined, aes(x = Graze_timing, y = mpe, fill= Source))+
+  geom_col(position = "dodge") + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.3)) +
+  facet_grid(~ Ecosite) + mytheme()
+gg_metrics3
+
+gg_metrics4 <- ggplot(error_combined, aes(x = Graze_timing, y = mape, fill= Source))+
+  geom_col(position = "dodge") + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.3)) +
+  facet_grid(~ Ecosite) + mytheme()
+gg_metrics4
+
+gg_metrics5 <- ggplot(error_combined, aes(x = Graze_timing, y = bias, fill= Source))+
+  geom_col(position = "dodge") + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.3)) +
+  facet_grid(~ Ecosite) + mytheme()
+gg_metrics5
+
+error_grid <- plot_grid(gg_metrics1,gg_metrics2, gg_metrics3,gg_metrics4)
+error_grid
 # Graphing error ----
 
 # Create a scatterplot to compare model errors
